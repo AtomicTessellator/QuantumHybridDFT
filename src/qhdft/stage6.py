@@ -5,8 +5,14 @@ from .stage1 import setup_discretization
 from .stage2 import build_hamiltonian
 from .stage5 import find_mu, run_scf
 
+# Stage 6: Validation and Numerical Results
+# Validates the converged density from SCF by computing energy, plotting density, analyzing scaling with system size Na,
+# and breaking down errors (polynomial approx, statistical, iteration). Compares to classical baselines.
+
 
 def compute_energy(hat_n, D, D_delta, N, params, beta):
+    # Computes ground state energy E = sum occ_i * e_i, where occ_i = f(e_i), from H built on converged hat_n.
+    # Uses exact diagonalization here for validation; in quantum setting, could use similar estimation.
     H, _, _, _ = build_hamiltonian(hat_n, D, D_delta, N, params)
     eigs, _ = np.linalg.eigh(H.toarray())
     Ne = sum(params["Z"])
@@ -17,6 +23,8 @@ def compute_energy(hat_n, D, D_delta, N, params, beta):
 
 
 def generate_density_data(hat_n, D, D_delta, N):
+    # Generates data for plotting: fine grid positions r and interpolated density n(r) from coarse hat_n.
+    # Uses shape functions to reconstruct n_fine = N_matrix @ hat_n.
     diffs = D[:, None, :] - D_delta[None, :, :]
     N_matrix = N(diffs)
     n_fine = N_matrix @ hat_n
@@ -26,6 +34,9 @@ def generate_density_data(hat_n, D, D_delta, N):
 def run_scaling_test(
     base_params, beta, alpha, K, epsilon_scf, delta, epsilon_est, M, Na_range
 ):
+    # Tests scaling: runs SCF for varying Na (system size), measures total queries (proxy for time).
+    # Fits linear model queries ~ slope * Na + intercept, checks R^2 > 0.95 for linear scaling.
+    # Uses simple H chain (Z=1) with positions spread in domain.
     queries = []
     times = []  # Placeholder, since no actual time measurement
     for Na in Na_range:
@@ -60,6 +71,8 @@ def run_scaling_test(
 def compute_error_breakdown(
     hat_n, n_star, E_hat, E_star, poly_max_err, epsilon_est, num_iters
 ):
+    # Quantifies errors: polynomial approximation error, statistical fluctuation bound,
+    # number of iterations, L2 density error, absolute energy error vs. classical baseline.
     errors = {
         "poly_approx": poly_max_err,
         "stat_fluct": epsilon_est,

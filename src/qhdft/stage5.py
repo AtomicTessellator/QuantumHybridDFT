@@ -4,8 +4,17 @@ from scipy.optimize import bisect
 from .stage2 import build_hamiltonian
 from .stage4 import estimate_density
 
+# Stage 5: Self-Consistent Field (SCF) Iterations with Randomized Block Coordinates
+# Solves the DFT self-consistency n = F(n) iteratively: start with initial n0, update blocks of n using estimates of F.
+# Uses Anderson mixing: n_{k+1} = α hat{F}(n_k) + (1-α) n_k on selected block, for stability with noisy estimates.
+# Random block selection (size B) reduces cost per iteration to O(B / ε), with total iterations O(log(1/ε_scf)).
+# Converges when residual ||n_{k+1} - n_k|| < ε_scf, yielding approximate ground state density.
+# μ is adjusted each iteration to enforce ∫ n ≈ Ne via bisection.
+
 
 def find_mu(eigs, beta, Ne):
+    # Finds chemical potential μ such that sum 1/(1+exp(β(e_i - μ))) = Ne.
+    # Uses bisection on [min(e)-1, max(e)+1]; clips large exponents to avoid overflow.
     def func(mu):
         occ = np.zeros_like(eigs)
         for i, e in enumerate(eigs):
@@ -38,6 +47,10 @@ def run_scf(
     epsilon_est,
     M,
 ):
+    # Performs K iterations (or until converged) of hybrid SCF.
+    # Each iteration: build H from current n_k, find μ, select random block indices,
+    # estimate hat_f = F(n_k) on block via stage4, mix to update n_new on block.
+    # Tracks residuals and total query complexity summed over estimates.
     n_k = initial_n.copy()
     NI = len(D_delta)
     Ne = sum(params["Z"])

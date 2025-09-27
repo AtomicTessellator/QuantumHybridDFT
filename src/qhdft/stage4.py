@@ -1,10 +1,23 @@
 import numpy as np
 from scipy.stats import norm
 
+# Stage 4: Electron Density Estimation via Quantum Measurements
+# Estimates selected components of the density F(n) = diagonals of Γ = f(H), where H is from current n.
+# In a real quantum setting, this would use the QSVT circuit U to prepare states and measure probabilities
+# via amplitude estimation for efficiency O(1/ε). Here, we simulate classically: compute exact density,
+# project to coarse grid, add Gaussian noise mimicking measurement variance, for selected block indices.
+# Provides estimates hat_f, confidence intervals, and query complexity estimate.
+# Block selection allows randomized updates in SCF, reducing per-iteration cost to O(B / ε) instead of O(NI / ε).
+
 
 def estimate_density(
     H, norm_factor, beta, mu, D, D_delta, N, indices, M, delta, epsilon_est
 ):
+    # Simulates estimation of coarse density on selected indices (block of size B).
+    # Classically computes exact fine density n_fine = sum occ * |ψ_i|^2, with occ = f(eigs).
+    # Projects to coarse n_coarse_true via least-squares with shape matrix N.
+    # Adds noise ~ Normal(0, sigma^2), where sigma tuned for L2 error < ε_est with high probability.
+    # Confidence intervals assume normality. Complexity rough O(sparsity * B / ε * M).
     # Classically compute true density on fine grid for simulation
     eigs, evecs = np.linalg.eigh(H.toarray())
     occ = 1 / (1 + np.exp(beta * (eigs - mu)))
