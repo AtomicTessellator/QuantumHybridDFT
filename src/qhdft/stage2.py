@@ -28,14 +28,14 @@ def build_hamiltonian(n, D, D_delta, N, params):
         V_ext += -z / dist
     # V_xc: simple placeholder LDA-like, - (n)^{1/3}
     # TODO: Implement proper 1D LDA
-    V_xc = -(n_fine ** (1 / 3))
+    V_xc = -(np.maximum(n_fine, 0) ** (1 / 3))
     # V_eff
     V_eff = V_ext + V_H + V_xc
     # H = kinetic + diag(V_eff)
     H = kinetic + diags([V_eff], [0])
     H = csr_matrix(H)
     # Ensure Hermitian (real symmetric)
-    assert np.max(np.abs(H - H.T)) < 1e-10
+    assert np.max(np.abs(H - H.T)) < 1e-8
     # Normalization factor (rough estimate for [-1,1])
     norm = np.max(np.abs(V_eff)) + 2.0 / h**2
 

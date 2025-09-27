@@ -7,7 +7,16 @@ from .stage4 import estimate_density
 
 def find_mu(eigs, beta, Ne):
     def func(mu):
-        return np.sum(1 / (1 + np.exp(beta * (eigs - mu)))) - Ne
+        occ = np.zeros_like(eigs)
+        for i, e in enumerate(eigs):
+            arg = beta * (e - mu)
+            if arg > 100:
+                occ[i] = 0
+            elif arg < -100:
+                occ[i] = 1
+            else:
+                occ[i] = 1 / (1 + np.exp(arg))
+        return np.sum(occ) - Ne
 
     mu_min = np.min(eigs) - 1
     mu_max = np.max(eigs) + 1
