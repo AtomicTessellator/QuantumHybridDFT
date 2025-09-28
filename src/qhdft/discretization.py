@@ -4,13 +4,22 @@ import numpy as np
 import numpy.typing as npt
 from scipy.linalg import lstsq
 
-# Stage 1: System Discretization and Setup
+# System Discretization and Setup
 # This stage establishes the numerical grid for representing the quantum system in Density Functional Theory (DFT).
 # We create a fine grid for accurate Hamiltonian discretization and a coarse set of interpolation points centered at atoms
-# to reduce computational complexity from O(Ng) to O(NI), where Ng is the number of grid points (~ number of electrons Ne)
-# and NI is the number of interpolation points (~ number of atoms Na). This enables linear scaling in quantum algorithms.
-# The initial electron density is approximated as a superposition of Gaussians around atomic positions, normalized to integrate to Ne.
-# Shape functions (Gaussians) are used for interpolation between coarse and fine grids, ensuring accurate density reconstruction.
+# to reduce computational complexity from
+#
+#  O(Ng) to O(NI),
+#
+#  Ng is the number of grid points (~ number of electrons)
+#  NI is the number of interpolation points (~ number of atoms).
+#
+# This enables linear scaling in quantum algorithms.
+# The initial electron density is approximated as a superposition of Gaussians around atomic positions,
+# normalized to integrate to Ng.
+#
+# Shape functions (Gaussians) are used for interpolation between coarse and fine grids,
+# ensuring accurate density reconstruction.
 
 
 def gaussian(
@@ -30,14 +39,40 @@ def setup_discretization(
     npt.NDArray[np.float64],  # coarseDensity
     Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]],  # shapeFunction
 ]:
-    # Sets up the fine grid (fineGrid), coarse points (coarsePoints), initial coarse density (coarseDensity), and shape function (shapeFunction).
-    # Parameters include dimension (currently 1D), domain [0, L], grid exponent m (numGridPoints=2^m for qubit mapping),
-    # atomic positions and charges (atomicCharges), and Gaussian width sigma.
-    # Fine grid (fineGrid) is uniform in [0, L] with numGridPoints points.
-    # Coarse points (coarsePoints) are at atomic positions (NI = Na).
-    # Initial fine density (fineDensity) is sum of Gaussians centered at atoms, scaled by atomicCharges (atomic number, approximating electron count).
-    # Coarse density (coarseDensity) is obtained by least-squares fitting fineDensity = interpolationMatrix @ coarseDensity, minimizing reconstruction error.
-    # This setup reduces the DFT problem size while preserving accuracy for potentials and densities.
+    """Set up the discretization for the quantum hybrid DFT calculation.
+
+    This function establishes the fine grid, coarse points, initial coarse density,
+    and shape function for the DFT calculation. It reduces the problem size while
+    preserving accuracy for potentials and densities.
+
+    Parameters
+    ----------
+    params : Dict[str, Any]
+        Configuration parameters including:
+        - dimension : int (currently only 1D supported)
+        - domain : [0, L]
+        - gridExponent : int (m, where numGridPoints = 2^m for qubit mapping)
+        - atomicPositions : array of atomic positions
+        - atomicCharges : array of atomic charges (atomic numbers, approximating electron count)
+        - sigma : float (Gaussian width parameter)
+
+    Returns
+    -------
+    fineGrid : npt.NDArray[np.float64]
+        Uniform grid in [0, L] with numGridPoints points
+    coarsePoints : npt.NDArray[np.float64]
+        Points at atomic positions (NI = Na)
+    coarseDensity : npt.NDArray[np.float64]
+        Coarse density obtained by least-squares fitting fineDensity = interpolationMatrix @ coarseDensity,
+        minimizing reconstruction error
+    shapeFunction : Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]
+        Function for interpolation between grids
+
+    Notes
+    -----
+    The initial fine density (fineDensity) is computed as the sum of Gaussians centered
+    at atoms, scaled by atomicCharges (atomic number, approximating electron count).
+    """
 
     dim = params.get("dimension")
     if dim != 1:
