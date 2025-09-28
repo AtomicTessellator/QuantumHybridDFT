@@ -2,7 +2,7 @@ import numpy as np
 from numpy.polynomial.chebyshev import chebfit, chebval
 from qiskit import QuantumCircuit
 
-# Stage 3: Quantum Singular Value Transformation (QSVT) for Density-Matrix Encoding
+# Quantum Singular Value Transformation (QSVT) for Density-Matrix Encoding
 # Applies QSVT to block-encode an approximation of the density matrix Γ = f(H), where f(x) is the Fermi-Dirac function
 # f(x) = 1 / (1 + exp(β (x - μ))), encoding thermal occupations at inverse temperature β and chemical potential μ.
 # This avoids explicit diagonalization of H, enabling linear scaling O(Na) instead of O(Na^3) for large systems.

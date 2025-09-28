@@ -4,7 +4,7 @@ from scipy.optimize import bisect
 from qhdft.density import estimate_density
 from qhdft.hamiltonian import build_hamiltonian
 
-# Stage 5: Self-Consistent Field (SCF) Iterations with Randomized Block Coordinates
+# Self-Consistent Field (SCF) Iterations with Randomized Block Coordinates
 # Solves the DFT self-consistency n = F(n) iteratively: start with initial n0, update blocks of n using estimates of F.
 # Uses Anderson mixing: n_{k+1} = α hat{F}(n_k) + (1-α) n_k on selected block, for stability with noisy estimates.
 # Random block selection (size B) reduces cost per iteration to O(B / ε), with total iterations O(log(1/ε_scf)).
