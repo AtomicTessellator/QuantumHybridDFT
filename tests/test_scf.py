@@ -4,7 +4,14 @@ import numpy as np
 
 from qhdft.discretization import setup_discretization
 from qhdft.hamiltonian import build_hamiltonian
-from qhdft.scf import find_mu, run_scf
+from qhdft.scf import (
+    Discretization,
+    EstimationControls,
+    SCFConfig,
+    SCFControls,
+    find_mu,
+    run_scf_configured,
+)
 
 
 class TestScf(unittest.TestCase):
@@ -15,7 +22,6 @@ class TestScf(unittest.TestCase):
             "grid_exponent": 5,  # Ng=32
             "atomic_positions": [3.0, 7.0],
             "atomic_numbers": [3, 1],
-            "Z": [3, 1],  # Still needed for build_hamiltonian
             "gaussian_width": 0.5,
             "interpolation_tolerance": 0.1,
             "epsilon": 0.1,  # Still needed for build_hamiltonian
@@ -35,7 +41,7 @@ class TestScf(unittest.TestCase):
             self.shapeFunction,
         ) = setup_discretization(self.params)
         self.num_grid_points = len(self.fineGrid)
-        self.num_electrons = sum(self.params["Z"])
+        self.num_electrons = sum(self.params["atomic_numbers"])
 
     def classical_scf(self, initial_coarse_density, tolerance=1e-6, max_iterations=100):
         current_coarse_density = initial_coarse_density.copy()
@@ -79,21 +85,31 @@ class TestScf(unittest.TestCase):
         energy_errors = []
         norm_errors = []
         for _ in range(num_trials):
-            estimated_coarse_density, residuals, query_complexity = run_scf(
-                self.initialCoarseDensity,
-                self.fineGrid,
-                self.coarsePoints,
-                self.shapeFunction,
-                self.params,
-                self.inverse_temperature,
-                self.mixing_parameter,
-                self.block_size,
-                self.max_iterations,
-                self.convergence_threshold,
-                self.confidence_level,
-                self.estimation_error_tolerance,
-                self.num_quantum_samples,
+            scf_config = SCFConfig(
+                initial_coarse_density=self.initialCoarseDensity,
+                discretization=Discretization(
+                    fine_grid=self.fineGrid,
+                    coarse_points=self.coarsePoints,
+                    shape_function=self.shapeFunction,
+                    system_params=self.params,
+                ),
+                scf=SCFControls(
+                    inverse_temperature=self.inverse_temperature,
+                    mixing_parameter=self.mixing_parameter,
+                    block_size=self.block_size,
+                    max_iterations=self.max_iterations,
+                    convergence_threshold=self.convergence_threshold,
+                ),
+                estimation=EstimationControls(
+                    confidence_level=self.confidence_level,
+                    estimation_error_tolerance=self.estimation_error_tolerance,
+                    num_quantum_samples=self.num_quantum_samples,
+                ),
             )
+            result = run_scf_configured(scf_config)
+            estimated_coarse_density = result.converged_coarse_density
+            residuals = result.residuals
+            query_complexity = result.total_complexity
             self.assertLessEqual(len(residuals), self.max_iterations)
             self.assertGreater(query_complexity, 0)
 

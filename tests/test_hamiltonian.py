@@ -15,7 +15,6 @@ class TestHamiltonian(unittest.TestCase):
             "grid_exponent": 6,  # Small Ng=64 for tests
             "atomic_positions": [3.0, 7.0],
             "atomic_numbers": [3, 1],
-            "Z": [3, 1],  # Still needed for build_hamiltonian
             "gaussian_width": 0.5,
             "interpolation_tolerance": 0.1,
             "epsilon": 0.1,  # Still needed for build_hamiltonian

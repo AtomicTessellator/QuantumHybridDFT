@@ -2,7 +2,9 @@ import numpy as np
 from numpy.polynomial.chebyshev import chebfit, chebval
 from qiskit import QuantumCircuit
 
-# Stage 3: Quantum Singular Value Transformation (QSVT) for Density-Matrix Encoding
+from .qsvt_circuit import build_qsvt_unitary
+
+# Quantum Singular Value Transformation (QSVT) for Density-Matrix Encoding
 # Applies QSVT to block-encode an approximation of the density matrix Γ = f(H), where f(x) is the Fermi-Dirac function
 # f(x) = 1 / (1 + exp(β (x - μ))), encoding thermal occupations at inverse temperature β and chemical potential μ.
 # This avoids explicit diagonalization of H, enabling linear scaling O(Na) instead of O(Na^3) for large systems.
@@ -56,12 +58,14 @@ def build_qsvt(
     def polynomialApproximation(z):
         return chebval(z, chebyshevCoefficients)
 
-    # Placeholder for actual QSVT circuit; in practice, would compute phase factors for QSVT sequence.
-    # Uses numQubits for system + 1 ancillary for block encoding.
-    quantumCircuit = QuantumCircuit(numQubits + 1)
-    quantumCircuit.barrier()  # Placeholder for QSVT gates
-    # Gate complexity estimate: O(sparsity * polynomialDegree * log(1/ε)^2), conservative.
-    gateComplexity = int(
-        sparsity * polynomialDegree * (np.log(1 / polynomialErrorTolerance) ** 2)
+    # Build rigorous block-encoding circuit via unitary dilation of P(H_norm)
+    quantumCircuit, polynomialApproximation, gateComplexity = build_qsvt_unitary(
+        normalizedHamiltonian,
+        normalizationFactor,
+        inverseTemperature,
+        chemicalPotential,
+        polynomialDegree,
+        polynomialErrorTolerance,
+        numQubits,
     )
     return quantumCircuit, polynomialApproximation, gateComplexity

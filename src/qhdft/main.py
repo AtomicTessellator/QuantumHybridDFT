@@ -3,7 +3,13 @@ from typing import Any, Dict
 import numpy as np
 
 from qhdft.discretization import setup_discretization
-from qhdft.scf import run_scf
+from qhdft.scf import (
+    Discretization,
+    EstimationControls,
+    SCFConfig,
+    SCFControls,
+    run_scf_configured,
+)
 from qhdft.validation import compute_energy, compute_error_breakdown, run_scaling_test
 from qhdft.visualization.discretization import visualize_discretization
 from qhdft.visualization.energy import (
@@ -39,17 +45,16 @@ def main(visualize: bool = True, visualization_folder: str = "visualizations") -
         "grid_exponent": 5,  # Number of grid points = 2 ^ 5 = 32
         "atomic_positions": [3.0, 7.0],  # Li at 3.0, H at 7.0 Bohr
         "atomic_numbers": [3, 1],  # Li=3, H=1
-        "Z": [3, 1],  # Same as atomic_numbers, for compatibility with stage5
         "gaussian_width": 0.5,  # Width for density approximation
         "interpolation_tolerance": 0.1,
     }
     # Quantum algorithm parameters
     inverse_temperature = 10.0  # Beta parameter for thermal state
     mixing_parameter = 0.5  # Alpha: controls SCF convergence
-    chebyshev_degree = 2  # B: degree of Chebyshev expansion
+    block_size = 2  # Size of random block for updates
     max_scf_iterations = 100  # Maximum SCF iterations
     scf_convergence_threshold = 1e-4  # SCF convergence criterion
-    phase_estimation_precision = 0.01  # Delta: phase estimation precision
+    confidence_level = 0.01  # Confidence parameter for estimation routine
     estimation_error_tolerance = 1e-4  # Error tolerance for quantum estimation
     num_quantum_samples = 100000  # M: number of quantum samples
     polynomial_approximation_error = 1e-4  # Error in polynomial approximation
@@ -70,22 +75,32 @@ def main(visualize: bool = True, visualization_folder: str = "visualizations") -
             visualization_folder + "/discretization/",
         )
 
-    # Run SCF (stages 2,4,5)
-    converged_density, scf_residuals, computational_complexity = run_scf(
-        initial_density_coarse,
-        fine_grid,
-        coarse_interpolation_points,
-        shape_function,
-        system_params,
-        inverse_temperature,
-        mixing_parameter,
-        chebyshev_degree,
-        max_scf_iterations,
-        scf_convergence_threshold,
-        phase_estimation_precision,
-        estimation_error_tolerance,
-        num_quantum_samples,
+    # Run SCF (stages 2,4,5) — using structured config for clarity
+    scf_config = SCFConfig(
+        initial_coarse_density=initial_density_coarse,
+        discretization=Discretization(
+            fine_grid=fine_grid,
+            coarse_points=coarse_interpolation_points,
+            shape_function=shape_function,
+            system_params=system_params,
+        ),
+        scf=SCFControls(
+            inverse_temperature=inverse_temperature,
+            mixing_parameter=mixing_parameter,
+            block_size=block_size,
+            max_iterations=max_scf_iterations,
+            convergence_threshold=scf_convergence_threshold,
+        ),
+        estimation=EstimationControls(
+            confidence_level=confidence_level,
+            estimation_error_tolerance=estimation_error_tolerance,
+            num_quantum_samples=num_quantum_samples,
+        ),
     )
+    scf_result = run_scf_configured(scf_config)
+    converged_density = scf_result.converged_coarse_density
+    scf_residuals = scf_result.residuals
+    computational_complexity = scf_result.total_complexity
 
     # Visualize SCF convergence if requested
     if visualize:
@@ -147,7 +162,7 @@ def main(visualize: bool = True, visualization_folder: str = "visualizations") -
         mixing_parameter,
         max_scf_iterations,
         scf_convergence_threshold,
-        phase_estimation_precision,
+        confidence_level,
         estimation_error_tolerance,
         num_quantum_samples,
         num_atoms_range,
@@ -182,8 +197,6 @@ def main(visualize: bool = True, visualization_folder: str = "visualizations") -
         len(scf_residuals),
     )
     print(f"Error breakdown: {error_analysis}")
-
-    # Note: To include stage3, could build H from hat_n, normalize, call build_qsvt, but not simulated here.
 
 
 if __name__ == "__main__":
