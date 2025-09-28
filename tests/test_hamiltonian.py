@@ -3,27 +3,35 @@ import unittest
 import numpy as np
 from scipy.sparse import issparse
 
-from qhdft.stage1 import setup_discretization
-from qhdft.stage2 import build_hamiltonian
+from qhdft.discretization import setup_discretization
+from qhdft.hamiltonian import build_hamiltonian
 
 
-class TestStage2(unittest.TestCase):
+class TestHamiltonian(unittest.TestCase):
     def setUp(self):
         self.params = {
-            "dim": 1,
-            "domain": [0, 10.0],
-            "m": 6,  # Small Ng=64 for tests
+            "dimension": 1,
+            "computational_domain": [0, 10.0],
+            "grid_exponent": 6,  # Small Ng=64 for tests
             "atomic_positions": [3.0, 7.0],
-            "Z": [3, 1],
-            "sigma": 0.5,
-            "epsilon": 0.1,
+            "atomic_numbers": [3, 1],
+            "Z": [3, 1],  # Still needed for build_hamiltonian
+            "gaussian_width": 0.5,
+            "interpolation_tolerance": 0.1,
+            "epsilon": 0.1,  # Still needed for build_hamiltonian
         }
-        self.D, self.D_delta, self.n0, self.N = setup_discretization(self.params)
-        self.Ng = len(self.D)
+        self.fineGrid, self.coarsePoints, self.coarseDensity, self.shapeFunction = (
+            setup_discretization(self.params)
+        )
+        self.Ng = len(self.fineGrid)
 
     def test_build_hamiltonian(self):
         H, norm, L, V = build_hamiltonian(
-            self.n0, self.D, self.D_delta, self.N, self.params
+            self.coarseDensity,
+            self.fineGrid,
+            self.coarsePoints,
+            self.shapeFunction,
+            self.params,
         )
         # Check sparse
         self.assertTrue(issparse(H))

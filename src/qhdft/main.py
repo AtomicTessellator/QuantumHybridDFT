@@ -1,72 +1,145 @@
+from typing import Any, Dict
+
 import numpy as np
 
-from qhdft.stage1 import setup_discretization
-from qhdft.stage2 import build_hamiltonian
-from qhdft.stage3 import build_qsvt
-from qhdft.stage5 import run_scf
-from qhdft.stage6 import compute_energy, compute_error_breakdown, run_scaling_test
+from qhdft.discretization import setup_discretization
+from qhdft.scf import run_scf
+from qhdft.validation import compute_energy, compute_error_breakdown, run_scaling_test
+from qhdft.visualization.discretization import visualize_discretization
+from qhdft.visualization.scf import visualize_scf_convergence
 
-# Main Pipeline: Quantum Hybrid DFT
-# Integrates all stages to solve DFT for a given system.
+#
+# Quantum Hybrid DFT
+# ┌─────────────────────────────────────────┐
+# │ Stage 1: Discretization initial density │
+# └───────────────────┬─────────────────────┘
+#                     │
+#    ┌────────────────▼──────────────────┐
+#    │ Stage 2: Run SCF iterations       │
+#    └───────────────────────────────────┘
+
+
+#
 # 1. Setup discretization and initial density (stage1).
 # 2. Run SCF iterations (stage5, which calls stage2,4 internally; stage3 is placeholder).
 # 3. Validate with energy, scaling, errors (stage6).
 # Note: stage3 QSVT is not fully integrated in simulation; used for poly approx in tests.
 
 
-def main():
+def main(visualize: bool = True, visualization_folder: str = "visualizations") -> None:
     # System parameters for 1D Li-H chain example.
-    params = {
-        "dim": 1,
-        "domain": [0, 10.0],
-        "m": 5,  # Ng=32
-        "atomic_positions": [3.0, 7.0],
-        "Z": [3, 1],
-        "sigma": 0.5,
-        "epsilon": 0.1,
+    system_params: Dict[str, Any] = {
+        "dimension": 1,
+        "computational_domain": [0, 10.0],  # Bohr units
+        "grid_exponent": 5,  # Number of grid points = 2^5 = 32
+        "atomic_positions": [3.0, 7.0],  # Li at 3.0, H at 7.0 Bohr
+        "atomic_numbers": [3, 1],  # Li=3, H=1
+        "Z": [3, 1],  # Same as atomic_numbers, for compatibility with stage5
+        "gaussian_width": 0.5,  # Width for density approximation
+        "interpolation_tolerance": 0.1,
     }
-    beta = 10.0
-    alpha = 0.5
-    B = 2
-    K = 100
-    epsilon_scf = 1e-4
-    delta = 0.01
-    epsilon_est = 1e-4
-    M = 100000
-    d = 1500
-    epsilon_poly = 1e-4
+    # Quantum algorithm parameters
+    inverse_temperature = 10.0  # Beta parameter for thermal state
+    mixing_parameter = 0.5  # Alpha: controls SCF convergence
+    chebyshev_degree = 2  # B: degree of Chebyshev expansion
+    max_scf_iterations = 100  # Maximum SCF iterations
+    scf_convergence_threshold = 1e-4  # SCF convergence criterion
+    phase_estimation_precision = 0.01  # Delta: phase estimation precision
+    estimation_error_tolerance = 1e-4  # Error tolerance for quantum estimation
+    num_quantum_samples = 100000  # M: number of quantum samples
+    polynomial_approximation_error = 1e-4  # Error in polynomial approximation
 
     # Stage 1: Discretization
-    D, D_delta, n0, N = setup_discretization(params)
+    fine_grid, coarse_interpolation_points, initial_density_coarse, shape_function = (
+        setup_discretization(system_params)
+    )
+
+    # Visualize discretization if requested
+    if visualize:
+        visualize_discretization(
+            fine_grid,
+            coarse_interpolation_points,
+            initial_density_coarse,
+            shape_function,
+            system_params,
+            visualization_folder + "/discretization/",
+        )
 
     # Run SCF (stages 2,4,5)
-    hat_n, residuals, total_complexity = run_scf(
-        n0, D, D_delta, N, params, beta, alpha, B, K, epsilon_scf, delta, epsilon_est, M
+    converged_density, scf_residuals, computational_complexity = run_scf(
+        initial_density_coarse,
+        fine_grid,
+        coarse_interpolation_points,
+        shape_function,
+        system_params,
+        inverse_temperature,
+        mixing_parameter,
+        chebyshev_degree,
+        max_scf_iterations,
+        scf_convergence_threshold,
+        phase_estimation_precision,
+        estimation_error_tolerance,
+        num_quantum_samples,
     )
+
+    # Visualize SCF convergence if requested
+    if visualize:
+        visualize_scf_convergence(
+            scf_residuals,
+            converged_density,
+            initial_density_coarse,
+            coarse_interpolation_points,
+            fine_grid,
+            shape_function,
+            system_params,
+            computational_complexity,
+            visualization_folder + "/scf/",
+        )
 
     # Stage 6: Validation
-    E = compute_energy(hat_n, D, D_delta, N, params, beta)
-    print(f"Ground state energy: {E}")
+    ground_state_energy = compute_energy(
+        converged_density,
+        fine_grid,
+        coarse_interpolation_points,
+        shape_function,
+        system_params,
+        inverse_temperature,
+    )
+    print(f"Ground state energy: {ground_state_energy}")
 
     # Scaling test
-    Na_range = np.arange(2, 21, 2)
-    metrics, r2 = run_scaling_test(
-        params, beta, alpha, K, epsilon_scf, delta, epsilon_est, M, Na_range
+    num_atoms_range = np.arange(2, 21, 2)
+    scaling_metrics, r_squared = run_scaling_test(
+        system_params,
+        inverse_temperature,
+        mixing_parameter,
+        max_scf_iterations,
+        scf_convergence_threshold,
+        phase_estimation_precision,
+        estimation_error_tolerance,
+        num_quantum_samples,
+        num_atoms_range,
     )
-    print(f"Scaling R^2: {r2}")
-    print(f"Queries vs Na: {metrics['queries']}")
+    print(f"Scaling R^2: {r_squared}")
+    print(f"Queries vs Na: {scaling_metrics['queries']}")
 
     # Error breakdown (using placeholder poly_err; in full, from stage3)
-    # For demo, compute classical n_star, E_star
-    from qhdft.stage5 import find_mu  # For classical
-
-    n_star = n0.copy()  # Placeholder; actual would run classical SCF
-    E_star = E  # Placeholder
-    poly_max_err = epsilon_poly
-    errors = compute_error_breakdown(
-        hat_n, n_star, E, E_star, poly_max_err, epsilon_est, len(residuals)
+    # For demo, compute classical reference values
+    reference_density = (
+        initial_density_coarse.copy()
+    )  # Placeholder; actual would run classical SCF
+    reference_energy = ground_state_energy  # Placeholder
+    polynomial_max_error = polynomial_approximation_error
+    error_analysis = compute_error_breakdown(
+        converged_density,
+        reference_density,
+        ground_state_energy,
+        reference_energy,
+        polynomial_max_error,
+        estimation_error_tolerance,
+        len(scf_residuals),
     )
-    print(f"Error breakdown: {errors}")
+    print(f"Error breakdown: {error_analysis}")
 
     # Note: To include stage3, could build H from hat_n, normalize, call build_qsvt, but not simulated here.
 
