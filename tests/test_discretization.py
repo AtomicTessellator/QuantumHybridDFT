@@ -8,12 +8,12 @@ from qhdft.discretization import gaussian, setup_discretization
 class TestDiscretization(unittest.TestCase):
     def test_discretization(self):
         params = {
-            "dim": 1,
-            "domain": [0, 10.0],
-            "m": 10,
+            "dimension": 1,
+            "computational_domain": [0, 10.0],
+            "grid_exponent": 10,
             "atomic_positions": [3.0, 7.0],
-            "Z": [3, 1],
-            "sigma": 0.5,
+            "atomic_numbers": [3, 1],
+            "gaussian_width": 0.5,
         }
         fineGrid, coarsePoints, coarseDensity, shapeFunction = setup_discretization(
             params
@@ -32,7 +32,7 @@ class TestDiscretization(unittest.TestCase):
         # Compute n_fine
         sigma = 0.5
         n_fine = np.zeros(Ng)
-        for pos, z in zip(params["atomic_positions"], params["Z"]):
+        for pos, z in zip(params["atomic_positions"], params["atomic_numbers"]):
             d = fineGrid[:, 0] - pos
             n_fine += z * gaussian(d, sigma)
         # L2 error
