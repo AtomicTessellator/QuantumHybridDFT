@@ -5,7 +5,7 @@ from qhdft.discretization import setup_discretization
 from qhdft.hamiltonian import build_hamiltonian
 from qhdft.scf import find_mu, run_scf
 
-# Stage 6: Validation and Numerical Results
+# Validation and Numerical Results
 # Validates the converged density from SCF by computing energy, plotting density, analyzing scaling with system size Na,
 # and breaking down errors (polynomial approx, statistical, iteration). Compares to classical baselines.
 
@@ -18,8 +18,11 @@ def compute_energy(
     params,
     inverseTemperature,
 ):
-    # Computes ground state energy E = sum occ_i * e_i, where occ_i = f(e_i), from H built on converged coarse density.
-    # Uses exact diagonalization here for validation; in quantum setting, could use similar estimation.
+    """
+    Computes ground state energy E = sum occ_i * e_i, where occ_i = f(e_i), from H built on converged coarse density.
+
+    Uses exact diagonalization here for validation; in quantum setting, could use similar estimation.
+    """
     H, _, _, _ = build_hamiltonian(
         convergedCoarseDensity, fineGrid, coarsePoints, shapeFunction, params
     )
@@ -34,7 +37,11 @@ def compute_energy(
 
 
 def generate_density_data(coarseDensity, fineGrid, coarsePoints, shapeFunction):
-    # Generates data for plotting: fine grid positions r and interpolated density n(r) from coarse density.
+    """
+    Generates data for plotting: fine grid positions r and interpolated density n(r) from coarse density.
+
+    Uses shape functions to reconstruct fineDensity = interpolationMatrix @ coarseDensity.
+    """
     # Uses shape functions to reconstruct fineDensity = interpolationMatrix @ coarseDensity.
     diffs = fineGrid[:, None, :] - coarsePoints[None, :, :]
     interpolationMatrix = shapeFunction(diffs)
@@ -53,9 +60,12 @@ def run_scaling_test(
     numQuantumSamples,
     atomCountRange,
 ):
-    # Tests scaling: runs SCF for varying atom count (system size), measures total queries (proxy for time).
+    """
+    Tests scaling: runs SCF for varying atom count (system size), measures total queries (proxy for time).
+
     # Fits linear model queries ~ slope * atomCount + intercept, checks R^2 > 0.95 for linear scaling.
     # Uses simple H chain (Z=1) with positions spread in domain.
+    """
     queryComplexities = []
     timings = []  # Placeholder, since no actual time measurement
     for atomCount in atomCountRange:
@@ -101,7 +111,11 @@ def compute_error_breakdown(
     estimationErrorTolerance,
     numIterations,
 ):
-    # Quantifies errors: polynomial approximation error, statistical fluctuation bound,
+    """
+    Quantifies errors: polynomial approximation error, statistical fluctuation bound,
+
+    number of iterations, L2 density error, absolute energy error vs. classical baseline.
+    """
     # number of iterations, L2 density error, absolute energy error vs. classical baseline.
     errors = {
         "poly_approx": polynomialMaxError,

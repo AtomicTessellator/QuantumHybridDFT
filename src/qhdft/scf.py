@@ -47,10 +47,55 @@ def run_scf(
     estimationErrorTolerance,
     numQuantumSamples,
 ):
-    # Performs maxIterations (or until converged) of hybrid SCF.
-    # Each iteration: build Hamiltonian from current coarseDensity, find chemical potential, select random block indices,
-    # estimate densityBlock = F(coarseDensity) on block via stage4, mix to update coarseDensity on block.
-    # Tracks residuals and total query complexity summed over estimates.
+    """Performs hybrid SCF iterations until convergence or maximum iterations reached.
+
+    Executes the self-consistent field iteration loop where each iteration:
+    1. Builds Hamiltonian from current coarse density
+    2. Finds chemical potential
+    3. Selects random block indices
+    4. Estimates density block F(coarseDensity) on block via stage4
+    5. Mixes to update coarse density on block
+
+    The function tracks residuals and total query complexity summed over all estimates.
+
+    Parameters
+    ----------
+    initialCoarseDensity : array
+        Initial coarse density values
+    fineGrid : Grid
+        Fine discretization grid
+    coarsePoints : array
+        Coarse interpolation points
+    shapeFunction : callable
+        Shape function for interpolation
+    params : dict
+        System parameters including atomic charges
+    inverseTemperature : float
+        Inverse temperature (beta) parameter
+    mixingParameter : float
+        Mixing parameter for density updates
+    blockSize : int
+        Size of blocks for quantum estimation
+    maxIterations : int
+        Maximum number of SCF iterations
+    convergenceThreshold : float
+        Convergence threshold for residuals
+    confidenceLevel : float
+        Confidence level for quantum estimation
+    estimationErrorTolerance : float
+        Error tolerance for density estimation
+    numQuantumSamples : int
+        Number of quantum samples for estimation
+
+    Returns
+    -------
+    dict
+        Dictionary containing:
+        - 'converged': bool indicating if convergence was achieved
+        - 'coarseDensity': final coarse density array
+        - 'residuals': list of residuals per iteration
+        - 'total_complexity': total query complexity
+    """
     currentCoarseDensity = initialCoarseDensity.copy()
     numInterpolationPoints = len(coarsePoints)
     numElectrons = sum(params["Z"])

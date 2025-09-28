@@ -6,6 +6,7 @@ from qhdft.discretization import setup_discretization
 from qhdft.scf import run_scf
 from qhdft.validation import compute_energy, compute_error_breakdown, run_scaling_test
 from qhdft.visualization.discretization import visualize_discretization
+from qhdft.visualization.scf import visualize_scf_convergence
 
 #
 # Quantum Hybrid DFT
@@ -80,6 +81,20 @@ def main(visualize: bool = True, visualization_folder: str = "visualizations") -
         estimation_error_tolerance,
         num_quantum_samples,
     )
+
+    # Visualize SCF convergence if requested
+    if visualize:
+        visualize_scf_convergence(
+            scf_residuals,
+            converged_density,
+            initial_density_coarse,
+            coarse_interpolation_points,
+            fine_grid,
+            shape_function,
+            system_params,
+            computational_complexity,
+            visualization_folder + "/scf/",
+        )
 
     # Stage 6: Validation
     ground_state_energy = compute_energy(
