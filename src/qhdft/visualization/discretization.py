@@ -124,6 +124,20 @@ def visualize_discretization(
     # 3. Visualize coarse density and interpolation
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 10))
 
+    # Calculate the min and max x-values for both coarse and fine grids
+    coarse_x_min = np.min(coarsePoints[:, 0])
+    coarse_x_max = np.max(coarsePoints[:, 0])
+    fine_x_min = np.min(fineGrid[:, 0])
+    fine_x_max = np.max(fineGrid[:, 0])
+
+    # Use the overall min and max to set consistent x-axis limits
+    x_min = min(coarse_x_min, fine_x_min)
+    x_max = max(coarse_x_max, fine_x_max)
+
+    # Add a small margin for better visualization
+    x_margin = (x_max - x_min) * 0.05
+    x_limits = (x_min - x_margin, x_max + x_margin)
+
     # Top panel: Coarse density values at atomic positions
     markerline, stemlines, baseline = ax1.stem(
         coarsePoints[:, 0],
@@ -143,6 +157,7 @@ def visualize_discretization(
     ax1.set_title(
         "Coarse Density Values at Atomic Positions", fontsize=14, fontweight="bold"
     )
+    ax1.set_xlim(x_limits)  # Set consistent x-axis limits
     ax1.grid(True, alpha=0.3)
     ax1.legend()
 
@@ -181,6 +196,7 @@ def visualize_discretization(
     ax2.set_title(
         "Density Interpolation: Coarse to Fine Grid", fontsize=14, fontweight="bold"
     )
+    ax2.set_xlim(x_limits)  # Set consistent x-axis limits
     ax2.legend()
     ax2.grid(True, alpha=0.3)
 
