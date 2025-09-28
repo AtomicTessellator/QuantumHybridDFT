@@ -6,6 +6,11 @@ from qhdft.discretization import setup_discretization
 from qhdft.scf import run_scf
 from qhdft.validation import compute_energy, compute_error_breakdown, run_scaling_test
 from qhdft.visualization.discretization import visualize_discretization
+from qhdft.visualization.energy import (
+    visualize_energy_analysis,
+    visualize_orbital_analysis,
+)
+from qhdft.visualization.scaling import visualize_scaling_analysis
 from qhdft.visualization.scf import visualize_scf_convergence
 
 #
@@ -27,11 +32,11 @@ from qhdft.visualization.scf import visualize_scf_convergence
 
 
 def main(visualize: bool = True, visualization_folder: str = "visualizations") -> None:
-    # System parameters for 1D Li-H chain example.
+    # System parameters for 1D Li - H chain example.
     system_params: Dict[str, Any] = {
         "dimension": 1,
         "computational_domain": [0, 10.0],  # Bohr units
-        "grid_exponent": 5,  # Number of grid points = 2^5 = 32
+        "grid_exponent": 5,  # Number of grid points = 2 ^ 5 = 32
         "atomic_positions": [3.0, 7.0],  # Li at 3.0, H at 7.0 Bohr
         "atomic_numbers": [3, 1],  # Li=3, H=1
         "Z": [3, 1],  # Same as atomic_numbers, for compatibility with stage5
@@ -107,6 +112,33 @@ def main(visualize: bool = True, visualization_folder: str = "visualizations") -
     )
     print(f"Ground state energy: {ground_state_energy}")
 
+    # Visualize energy analysis if requested
+    if visualize:
+        visualize_energy_analysis(
+            converged_density,
+            fine_grid,
+            coarse_interpolation_points,
+            shape_function,
+            system_params,
+            inverse_temperature,
+            ground_state_energy,
+            scf_residuals,
+            None,  # No reference energy in this example
+            visualization_folder + "/energy/",
+        )
+
+        # Also create orbital analysis
+        visualize_orbital_analysis(
+            converged_density,
+            fine_grid,
+            coarse_interpolation_points,
+            shape_function,
+            system_params,
+            inverse_temperature,
+            num_orbitals=6,
+            output_folder=visualization_folder + "/energy/",
+        )
+
     # Scaling test
     num_atoms_range = np.arange(2, 21, 2)
     scaling_metrics, r_squared = run_scaling_test(
@@ -120,8 +152,18 @@ def main(visualize: bool = True, visualization_folder: str = "visualizations") -
         num_quantum_samples,
         num_atoms_range,
     )
-    print(f"Scaling R^2: {r_squared}")
+    print(f"Scaling R ^ 2: {r_squared}")
     print(f"Queries vs Na: {scaling_metrics['queries']}")
+
+    # Visualize scaling analysis if requested
+    if visualize:
+        visualize_scaling_analysis(
+            scaling_metrics,
+            r_squared,
+            system_params,
+            visualization_folder + "/scaling/",
+            theoretical_scaling="O(Na)",
+        )
 
     # Error breakdown (using placeholder poly_err; in full, from stage3)
     # For demo, compute classical reference values
