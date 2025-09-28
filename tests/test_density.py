@@ -18,7 +18,6 @@ class TestDensity(unittest.TestCase):
             "grid_exponent": 5,  # Ng=32
             "atomic_positions": [3.0, 7.0],
             "atomic_numbers": [3, 1],
-            "Z": [3, 1],  # Still needed for build_hamiltonian
             "gaussian_width": 0.5,
             "interpolation_tolerance": 0.1,
             "epsilon": 0.1,  # Still needed for build_hamiltonian
@@ -31,7 +30,7 @@ class TestDensity(unittest.TestCase):
         )
         self.num_grid_points = len(self.fineGrid)
         self.num_qubits = int(np.log2(self.num_grid_points))
-        self.num_electrons = sum(self.params["Z"])
+        self.num_electrons = sum(self.params["atomic_numbers"])
         self.hamiltonian, self.normalization_factor, _, _ = build_hamiltonian(
             self.coarseDensity,
             self.fineGrid,

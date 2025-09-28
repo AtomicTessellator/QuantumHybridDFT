@@ -75,7 +75,7 @@ def build_hamiltonian(coarseDensity, fineGrid, coarsePoints, shapeFunction, para
     # V_ext: attractive nuclear potential, softened 1/sqrt(r^2 + ε^2) to avoid singularities
     epsilon = params.get("epsilon", 0.1)
     atomic_positions = params["atomic_positions"]
-    atomicCharges = params["Z"]
+    atomicCharges = params["atomic_numbers"]
     V_ext = np.zeros(numGridPoints)
     for pos, charge in zip(atomic_positions, atomicCharges):
         dist = np.sqrt((fineGrid[:, 0] - pos) ** 2 + epsilon**2)

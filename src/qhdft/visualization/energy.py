@@ -129,7 +129,7 @@ def _plot_energy_components(
     eigenvalues, eigenvectors = np.linalg.eigh(H.toarray())
 
     # Compute chemical potential
-    num_electrons = sum(system_params["Z"])
+    num_electrons = sum(system_params["atomic_numbers"])
     chemical_potential = find_mu(eigenvalues, inverse_temperature, num_electrons)
 
     # Compute occupations
@@ -157,7 +157,7 @@ def _plot_energy_components(
     # External potential energy
     epsilon = system_params.get("epsilon", 0.1)
     atomic_positions = system_params["atomic_positions"]
-    atomic_charges = system_params["Z"]
+    atomic_charges = system_params["atomic_numbers"]
     V_ext = np.zeros(len(fine_grid))
     for pos, charge in zip(atomic_positions, atomic_charges):
         dist = np.sqrt((fine_grid[:, 0] - pos) ** 2 + epsilon**2)
@@ -278,7 +278,7 @@ def _plot_density_energy_relationship(
     # Bottom plot: Local energy density
     # Compute effective potential
     epsilon = system_params.get("epsilon", 0.1)
-    atomic_charges = system_params["Z"]
+    atomic_charges = system_params["atomic_numbers"]
     V_ext = np.zeros(len(fine_grid))
     for pos, charge in zip(atomic_positions, atomic_charges):
         dist = np.sqrt((fine_grid[:, 0] - pos) ** 2 + epsilon**2)
@@ -412,7 +412,7 @@ def _create_energy_summary_figure(
 
     # 1. Eigenvalue spectrum
     ax1 = fig.add_subplot(gs[0, 0])
-    num_electrons = sum(system_params["Z"])
+    num_electrons = sum(system_params["atomic_numbers"])
     chemical_potential = find_mu(eigenvalues, inverse_temperature, num_electrons)
 
     ax1.scatter(range(len(eigenvalues)), eigenvalues, c="blue", s=50, alpha=0.6)
@@ -607,7 +607,7 @@ def visualize_orbital_analysis(
     eigenvalues, eigenvectors = np.linalg.eigh(H.toarray())
 
     # Compute occupations
-    num_electrons = sum(system_params["Z"])
+    num_electrons = sum(system_params["atomic_numbers"])
     chemical_potential = find_mu(eigenvalues, inverse_temperature, num_electrons)
     occupations = 1 / (
         1 + np.exp(inverse_temperature * (eigenvalues - chemical_potential))

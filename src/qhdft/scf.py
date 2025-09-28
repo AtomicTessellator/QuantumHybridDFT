@@ -1,3 +1,6 @@
+from dataclasses import dataclass
+from typing import Any, Callable, Dict
+
 import numpy as np
 from scipy.optimize import bisect
 
@@ -12,10 +15,12 @@ from qhdft.hamiltonian import build_hamiltonian
 # μ is adjusted each iteration to enforce ∫ n ≈ Ne via bisection.
 
 
-def find_mu(eigenvalues, inverseTemperature, numElectrons):
+def find_mu(
+    eigenvalues: np.ndarray, inverseTemperature: float, numElectrons: int
+) -> float:
     # Finds chemical potential μ such that sum 1/(1+exp(β(e_i - μ))) = numElectrons.
     # Uses bisection on [min(eigenvalues)-1, max(eigenvalues)+1]; clips large exponents to avoid overflow.
-    def occupationSum(mu):
+    def occupationSum(mu: float) -> float:
         occupations = np.zeros_like(eigenvalues)
         for i, eigenvalue in enumerate(eigenvalues):
             arg = inverseTemperature * (eigenvalue - mu)
@@ -25,80 +30,115 @@ def find_mu(eigenvalues, inverseTemperature, numElectrons):
                 occupations[i] = 1
             else:
                 occupations[i] = 1 / (1 + np.exp(arg))
-        return np.sum(occupations) - numElectrons
+        return float(np.sum(occupations) - numElectrons)
 
     muMin = np.min(eigenvalues) - 1
     muMax = np.max(eigenvalues) + 1
     return bisect(occupationSum, muMin, muMax)
 
 
-def run_scf(
-    initialCoarseDensity,
-    fineGrid,
-    coarsePoints,
-    shapeFunction,
-    params,
-    inverseTemperature,
-    mixingParameter,
-    blockSize,
-    maxIterations,
-    convergenceThreshold,
-    confidenceLevel,
-    estimationErrorTolerance,
-    numQuantumSamples,
-):
-    """Performs hybrid SCF iterations until convergence or maximum iterations reached.
+@dataclass
+class Discretization:
+    """Holds discretization-related inputs for SCF.
 
-    Executes the self-consistent field iteration loop where each iteration:
-    1. Builds Hamiltonian from current coarse density
-    2. Finds chemical potential
-    3. Selects random block indices
-    4. Estimates density block F(coarseDensity) on block via stage4
-    5. Mixes to update coarse density on block
-
-    The function tracks residuals and total query complexity summed over all estimates.
-
-    Parameters
-    ----------
-    initialCoarseDensity : array
-        Initial coarse density values
-    fineGrid : Grid
-        Fine discretization grid
-    coarsePoints : array
-        Coarse interpolation points
-    shapeFunction : callable
-        Shape function for interpolation
-    params : dict
-        System parameters including atomic charges
-    inverseTemperature : float
-        Inverse temperature (beta) parameter
-    mixingParameter : float
-        Mixing parameter for density updates
-    blockSize : int
-        Size of blocks for quantum estimation
-    maxIterations : int
-        Maximum number of SCF iterations
-    convergenceThreshold : float
-        Convergence threshold for residuals
-    confidenceLevel : float
-        Confidence level for quantum estimation
-    estimationErrorTolerance : float
-        Error tolerance for density estimation
-    numQuantumSamples : int
-        Number of quantum samples for estimation
-
-    Returns
-    -------
-    dict
-        Dictionary containing:
-        - 'converged': bool indicating if convergence was achieved
-        - 'coarseDensity': final coarse density array
-        - 'residuals': list of residuals per iteration
-        - 'total_complexity': total query complexity
+    - fine_grid: fine discretization positions
+    - coarse_points: interpolation points for coarse density representation
+    - shape_function: kernel mapping pairwise diffs to interpolation weights
+    - system_params: system parameters (e.g., atomic numbers/positions)
     """
-    currentCoarseDensity = initialCoarseDensity.copy()
+
+    fine_grid: np.ndarray
+    coarse_points: np.ndarray
+    shape_function: Callable[[np.ndarray], np.ndarray]
+    system_params: Dict[str, Any]
+
+
+@dataclass
+class SCFControls:
+    """Algorithmic controls for the SCF iteration."""
+
+    inverse_temperature: float
+    mixing_parameter: float
+    block_size: int
+    max_iterations: int
+    convergence_threshold: float
+
+
+@dataclass
+class EstimationControls:
+    """Controls for the quantum/classical density estimation subroutine."""
+
+    confidence_level: float
+    estimation_error_tolerance: float
+    num_quantum_samples: int
+
+
+@dataclass
+class SCFConfig:
+    """Complete configuration for running SCF."""
+
+    initial_coarse_density: np.ndarray
+    discretization: Discretization
+    scf: SCFControls
+    estimation: EstimationControls
+
+
+@dataclass
+class SCFResult:
+    """Results of an SCF run."""
+
+    converged_coarse_density: np.ndarray
+    residuals: np.ndarray
+    total_complexity: int
+
+
+def _validate_scf_config(config: SCFConfig) -> None:
+    """Basic validation of SCF configuration values."""
+    if not (0 < config.scf.mixing_parameter <= 1):
+        raise ValueError("mixing_parameter must be in (0, 1]")
+    if config.scf.block_size <= 0:
+        raise ValueError("block_size must be positive")
+    if config.scf.max_iterations <= 0:
+        raise ValueError("max_iterations must be positive")
+    if config.scf.convergence_threshold <= 0:
+        raise ValueError("convergence_threshold must be positive")
+    if config.estimation.confidence_level <= 0:
+        raise ValueError("confidence_level must be positive")
+    if config.estimation.estimation_error_tolerance <= 0:
+        raise ValueError("estimation_error_tolerance must be positive")
+    if config.estimation.num_quantum_samples <= 0:
+        raise ValueError("num_quantum_samples must be positive")
+
+
+def run_scf_configured(config: SCFConfig) -> SCFResult:
+    """Performs hybrid SCF iterations using a structured configuration.
+
+    Subcalculations mapping:
+    - Hamiltonian construction: uses `config.discretization` and current density
+    - Chemical potential search: uses `config.scf.inverse_temperature`
+    - Block selection and mixing: uses `config.scf.block_size` and `config.scf.mixing_parameter`
+    - Density estimation: uses `config.estimation` controls
+    """
+    _validate_scf_config(config)
+
+    currentCoarseDensity = config.initial_coarse_density.copy()
+    fineGrid = config.discretization.fine_grid
+    coarsePoints = config.discretization.coarse_points
+    shapeFunction = config.discretization.shape_function
+    params = config.discretization.system_params
+
+    inverseTemperature = config.scf.inverse_temperature
+    mixingParameter = config.scf.mixing_parameter
+    blockSize = config.scf.block_size
+    maxIterations = config.scf.max_iterations
+    convergenceThreshold = config.scf.convergence_threshold
+
+    confidenceLevel = config.estimation.confidence_level
+    estimationErrorTolerance = config.estimation.estimation_error_tolerance
+    numQuantumSamples = config.estimation.num_quantum_samples
+
     numInterpolationPoints = len(coarsePoints)
-    numElectrons = sum(params["Z"])
+    numElectrons = sum(params["atomic_numbers"])
     residuals = []
     total_complexity = 0
 
@@ -106,9 +146,7 @@ def run_scf(
         hamiltonian, normalizationFactor, _, _ = build_hamiltonian(
             currentCoarseDensity, fineGrid, coarsePoints, shapeFunction, params
         )
-        eigenvalues = np.linalg.eigh(hamiltonian.toarray())[
-            0
-        ]  # For chemical potential finding, classical
+        eigenvalues = np.linalg.eigh(hamiltonian.toarray())[0]
         chemicalPotential = find_mu(eigenvalues, inverseTemperature, numElectrons)
 
         # Select random block
@@ -147,4 +185,8 @@ def run_scf(
         if residual < convergenceThreshold:
             break
 
-    return currentCoarseDensity, np.array(residuals), total_complexity
+    return SCFResult(
+        converged_coarse_density=currentCoarseDensity,
+        residuals=np.array(residuals),
+        total_complexity=total_complexity,
+    )

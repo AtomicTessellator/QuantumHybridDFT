@@ -3,7 +3,14 @@ from scipy.stats import linregress
 
 from qhdft.discretization import setup_discretization
 from qhdft.hamiltonian import build_hamiltonian
-from qhdft.scf import find_mu, run_scf
+from qhdft.scf import (
+    Discretization,
+    EstimationControls,
+    SCFConfig,
+    SCFControls,
+    find_mu,
+    run_scf_configured,
+)
 
 # Validation and Numerical Results
 # Validates the converged density from SCF by computing energy, plotting density, analyzing scaling with system size Na,
@@ -27,7 +34,7 @@ def compute_energy(
         convergedCoarseDensity, fineGrid, coarsePoints, shapeFunction, params
     )
     eigenvalues, _ = np.linalg.eigh(H.toarray())
-    numElectrons = sum(params["Z"])
+    numElectrons = sum(params["atomic_numbers"])
     chemicalPotential = find_mu(eigenvalues, inverseTemperature, numElectrons)
     occupations = 1 / (
         1 + np.exp(inverseTemperature * (eigenvalues - chemicalPotential))
@@ -66,6 +73,17 @@ def run_scaling_test(
     # Fits linear model queries ~ slope * atomCount + intercept, checks R^2 > 0.95 for linear scaling.
     # Uses simple H chain (Z=1) with positions spread in domain.
     """
+    # Basic validation for positive parameters
+    if maxIterations <= 0:
+        raise ValueError("maxIterations must be positive")
+    if convergenceThreshold <= 0:
+        raise ValueError("convergenceThreshold must be positive")
+    if confidenceLevel <= 0:
+        raise ValueError("confidenceLevel must be positive")
+    if estimationErrorTolerance <= 0:
+        raise ValueError("estimationErrorTolerance must be positive")
+    if numQuantumSamples <= 0:
+        raise ValueError("numQuantumSamples must be positive")
     queryComplexities = []
     timings = []  # Placeholder, since no actual time measurement
     for atomCount in atomCountRange:
@@ -73,25 +91,32 @@ def run_scaling_test(
         params["atomic_positions"] = np.linspace(
             0, baseParams["computational_domain"][1], atomCount + 1
         )[1:]
-        params["Z"] = [1] * atomCount  # Simple H chain
+        params["atomic_numbers"] = [1] * atomCount  # Simple H chain
         fineGrid, coarsePoints, initialCoarseDensity, shapeFunction = (
             setup_discretization(params)
         )
-        _, _, queryComplexity = run_scf(  # Assuming run_scf from stage5
-            initialCoarseDensity,
-            fineGrid,
-            coarsePoints,
-            shapeFunction,
-            params,
-            inverseTemperature,
-            mixingParameter,
-            atomCount,  # Full update
-            maxIterations,
-            1e-10,  # Small to run full maxIterations
-            confidenceLevel,
-            estimationErrorTolerance,
-            numQuantumSamples,
+        scf_config = SCFConfig(
+            initial_coarse_density=initialCoarseDensity,
+            discretization=Discretization(
+                fine_grid=fineGrid,
+                coarse_points=coarsePoints,
+                shape_function=shapeFunction,
+                system_params=params,
+            ),
+            scf=SCFControls(
+                inverse_temperature=inverseTemperature,
+                mixing_parameter=mixingParameter,
+                block_size=atomCount,  # Full update
+                max_iterations=maxIterations,
+                convergence_threshold=1e-10,  # Small to run full maxIterations
+            ),
+            estimation=EstimationControls(
+                confidence_level=confidenceLevel,
+                estimation_error_tolerance=estimationErrorTolerance,
+                num_quantum_samples=numQuantumSamples,
+            ),
         )
+        queryComplexity = run_scf_configured(scf_config).total_complexity
         queryComplexities.append(queryComplexity)
         timings.append(queryComplexity)  # Proxy
     # Linear fit
