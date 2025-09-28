@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.stats import linregress
 
-from .stage1 import setup_discretization
+from .discretization import setup_discretization
 from .stage2 import build_hamiltonian
 from .stage5 import find_mu, run_scf
 

@@ -5,6 +5,7 @@ import numpy as np
 from qhdft.discretization import setup_discretization
 from qhdft.stage5 import run_scf
 from qhdft.stage6 import compute_energy, compute_error_breakdown, run_scaling_test
+from qhdft.visualization.discretization import visualize_discretization
 
 #
 # Quantum Hybrid DFT
@@ -24,7 +25,7 @@ from qhdft.stage6 import compute_energy, compute_error_breakdown, run_scaling_te
 # Note: stage3 QSVT is not fully integrated in simulation; used for poly approx in tests.
 
 
-def main() -> None:
+def main(visualize: bool = True, visualization_folder: str = "visualizations") -> None:
     # System parameters for 1D Li-H chain example.
     system_params: Dict[str, Any] = {
         "dimension": 1,
@@ -32,6 +33,7 @@ def main() -> None:
         "grid_exponent": 5,  # Number of grid points = 2^5 = 32
         "atomic_positions": [3.0, 7.0],  # Li at 3.0, H at 7.0 Bohr
         "atomic_numbers": [3, 1],  # Li=3, H=1
+        "Z": [3, 1],  # Same as atomic_numbers, for compatibility with stage5
         "gaussian_width": 0.5,  # Width for density approximation
         "interpolation_tolerance": 0.1,
     }
@@ -51,6 +53,18 @@ def main() -> None:
         setup_discretization(system_params)
     )
 
+    # Visualize discretization if requested
+    if visualize:
+        visualize_discretization(
+            fine_grid,
+            coarse_interpolation_points,
+            initial_density_coarse,
+            shape_function,
+            system_params,
+            visualization_folder + "/discretization/",
+        )
+
+    return
     # Run SCF (stages 2,4,5)
     converged_density, scf_residuals, computational_complexity = run_scf(
         initial_density_coarse,
