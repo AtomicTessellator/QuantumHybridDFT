@@ -38,19 +38,23 @@ def setup_discretization(
     # Initial fine density (fineDensity) is sum of Gaussians centered at atoms, scaled by atomicCharges (atomic number, approximating electron count).
     # Coarse density (coarseDensity) is obtained by least-squares fitting fineDensity = interpolationMatrix @ coarseDensity, minimizing reconstruction error.
     # This setup reduces the DFT problem size while preserving accuracy for potentials and densities.
-    dim = params.get("dim", 1)
+
+    dim = params.get("dimension")
     if dim != 1:
         raise NotImplementedError("Only 1D supported currently.")
-    domain = params["domain"]  # [0, L]
-    m = params["m"]
+
+    domain = params.get("computational_domain")  # [0, L]
+
+    m = params.get("grid_exponent")
     numGridPoints = 2**m
     fineGrid = np.linspace(domain[0], domain[1], numGridPoints)[
         :, None
     ]  # (numGridPoints, dim)
-    atomic_positions = params["atomic_positions"]
-    atomicCharges = params["Z"]
+
+    atomic_positions = params.get("atomic_positions")
+    atomicCharges = params.get("atomic_numbers")
     coarsePoints = np.array(atomic_positions)[:, None]  # (NI, dim)
-    sigma = params.get("sigma", 0.5)
+    sigma = params.get("gaussian_width")
 
     def shapeFunction(diff: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
         # Shape function: Gaussian of distance, for interpolating from coarse to fine grid.
@@ -63,9 +67,11 @@ def setup_discretization(
     for pos, charge in zip(atomic_positions, atomicCharges):
         distance = fineGrid[:, 0] - pos
         fineDensity += charge * gaussian(distance, sigma)
+
     # Build interpolationMatrix (numGridPoints, NI) for interpolation.
     diffs = fineGrid[:, None, :] - coarsePoints[None, :, :]  # (numGridPoints, NI, dim)
     interpolationMatrix = shapeFunction(diffs)  # (numGridPoints, NI)
+
     # Solve for coarseDensity such that interpolationMatrix @ coarseDensity ≈ fineDensity (least squares).
     coarseDensity, _, _, _ = lstsq(interpolationMatrix, fineDensity)
     return fineGrid, coarsePoints, coarseDensity, shapeFunction
