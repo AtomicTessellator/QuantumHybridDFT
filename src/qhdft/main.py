@@ -3,8 +3,8 @@ from typing import Any, Dict
 import numpy as np
 
 from qhdft.discretization import setup_discretization
-from qhdft.stage5 import run_scf
-from qhdft.stage6 import compute_energy, compute_error_breakdown, run_scaling_test
+from qhdft.scf import run_scf
+from qhdft.validation import compute_energy, compute_error_breakdown, run_scaling_test
 from qhdft.visualization.discretization import visualize_discretization
 
 #
@@ -64,7 +64,6 @@ def main(visualize: bool = True, visualization_folder: str = "visualizations") -
             visualization_folder + "/discretization/",
         )
 
-    return
     # Run SCF (stages 2,4,5)
     converged_density, scf_residuals, computational_complexity = run_scf(
         initial_density_coarse,
