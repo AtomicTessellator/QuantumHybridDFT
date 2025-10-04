@@ -11,6 +11,7 @@ from qhdft.scf import (
     run_scf_configured,
 )
 from qhdft.validation import compute_energy, compute_error_breakdown, run_scaling_test
+from qhdft.visualization.comparison import visualize_classical_vs_quantum
 from qhdft.visualization.discretization import visualize_discretization
 from qhdft.visualization.energy import (
     visualize_energy_analysis,
@@ -37,7 +38,11 @@ from qhdft.visualization.scf import visualize_scf_convergence
 # Note: stage3 QSVT is not fully integrated in simulation; used for poly approx in tests.
 
 
-def main(visualize: bool = True, visualization_folder: str = "visualizations") -> None:
+def main(
+    visualize: bool = True,
+    visualization_folder: str = "visualizations",
+    use_quantum: bool = False,
+) -> None:
     # System parameters for 1D Li - H chain example.
     system_params: Dict[str, Any] = {
         "dimension": 1,
@@ -97,7 +102,7 @@ def main(visualize: bool = True, visualization_folder: str = "visualizations") -
             num_quantum_samples=num_quantum_samples,
         ),
     )
-    scf_result = run_scf_configured(scf_config)
+    scf_result = run_scf_configured(scf_config, use_quantum=use_quantum)
     converged_density = scf_result.converged_coarse_density
     scf_residuals = scf_result.residuals
     computational_complexity = scf_result.total_complexity
@@ -115,6 +120,14 @@ def main(visualize: bool = True, visualization_folder: str = "visualizations") -
             computational_complexity,
             visualization_folder + "/scf/",
         )
+
+        # Visualize classical vs quantum comparison if quantum was used
+        if use_quantum:
+            visualize_classical_vs_quantum(
+                scf_result,
+                coarse_interpolation_points,
+                visualization_folder + "/comparison/",
+            )
 
     # Stage 6: Validation
     ground_state_energy = compute_energy(
@@ -200,4 +213,4 @@ def main(visualize: bool = True, visualization_folder: str = "visualizations") -
 
 
 if __name__ == "__main__":
-    main()
+    main(use_quantum=True)
