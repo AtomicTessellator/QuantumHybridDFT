@@ -124,7 +124,7 @@ def run_scf_configured(config: SCFConfig, use_quantum: bool = False) -> SCFResul
     - Chemical potential search: uses `config.scf.inverse_temperature`
     - Block selection and mixing: uses `config.scf.block_size` and `config.scf.mixing_parameter`
     - Density estimation: uses `config.estimation` controls
-    
+
     If use_quantum=True, runs both classical and quantum estimation for comparison.
     """
     _validate_scf_config(config)
@@ -134,14 +134,14 @@ def run_scf_configured(config: SCFConfig, use_quantum: bool = False) -> SCFResul
     classical_densities = [currentCoarseDensityClassical.copy()]
     classical_residuals = []
     classical_complexity = 0
-    
+
     # Initialize quantum tracking if requested
     if use_quantum:
         currentCoarseDensityQuantum = config.initial_coarse_density.copy()
         quantum_densities = [currentCoarseDensityQuantum.copy()]
         quantum_residuals = []
         quantum_complexity = 0
-    
+
     fineGrid = config.discretization.fine_grid
     coarsePoints = config.discretization.coarse_points
     shapeFunction = config.discretization.shape_function
@@ -166,13 +166,15 @@ def run_scf_configured(config: SCFConfig, use_quantum: bool = False) -> SCFResul
         blockIndices = np.random.choice(
             numInterpolationPoints, blockSize, replace=False
         )
-        
+
         # === CLASSICAL ESTIMATION ===
         hamiltonianClassical, normalizationFactorClassical, _, _ = build_hamiltonian(
             currentCoarseDensityClassical, fineGrid, coarsePoints, shapeFunction, params
         )
         eigenvaluesClassical = np.linalg.eigh(hamiltonianClassical.toarray())[0]
-        chemicalPotentialClassical = find_mu(eigenvaluesClassical, inverseTemperature, numElectrons)
+        chemicalPotentialClassical = find_mu(
+            eigenvaluesClassical, inverseTemperature, numElectrons
+        )
 
         estimatedDensityBlockClassical, _, queryComplexityClassical = estimate_density(
             hamiltonianClassical,
@@ -194,32 +196,42 @@ def run_scf_configured(config: SCFConfig, use_quantum: bool = False) -> SCFResul
             mixingParameter * estimatedDensityBlockClassical
             + (1 - mixingParameter) * currentCoarseDensityClassical[blockIndices]
         )
-        
-        residualClassical = np.linalg.norm(newCoarseDensityClassical - currentCoarseDensityClassical)
+
+        residualClassical = np.linalg.norm(
+            newCoarseDensityClassical - currentCoarseDensityClassical
+        )
         classical_residuals.append(residualClassical)
         currentCoarseDensityClassical = newCoarseDensityClassical
         classical_densities.append(currentCoarseDensityClassical.copy())
-        
+
         # === QUANTUM ESTIMATION ===
         if use_quantum:
             hamiltonianQuantum, normalizationFactorQuantum, _, _ = build_hamiltonian(
-                currentCoarseDensityQuantum, fineGrid, coarsePoints, shapeFunction, params
-            )
-            eigenvaluesQuantum = np.linalg.eigh(hamiltonianQuantum.toarray())[0]
-            chemicalPotentialQuantum = find_mu(eigenvaluesQuantum, inverseTemperature, numElectrons)
-
-            estimatedDensityBlockQuantum, _, queryComplexityQuantum = estimate_density_quantum(
-                hamiltonianQuantum,
-                normalizationFactorQuantum,
-                inverseTemperature,
-                chemicalPotentialQuantum,
+                currentCoarseDensityQuantum,
                 fineGrid,
                 coarsePoints,
                 shapeFunction,
-                blockIndices,
-                numQuantumSamples,
-                confidenceLevel,
-                estimationErrorTolerance,
+                params,
+            )
+            eigenvaluesQuantum = np.linalg.eigh(hamiltonianQuantum.toarray())[0]
+            chemicalPotentialQuantum = find_mu(
+                eigenvaluesQuantum, inverseTemperature, numElectrons
+            )
+
+            estimatedDensityBlockQuantum, _, queryComplexityQuantum = (
+                estimate_density_quantum(
+                    hamiltonianQuantum,
+                    normalizationFactorQuantum,
+                    inverseTemperature,
+                    chemicalPotentialQuantum,
+                    fineGrid,
+                    coarsePoints,
+                    shapeFunction,
+                    blockIndices,
+                    numQuantumSamples,
+                    confidenceLevel,
+                    estimationErrorTolerance,
+                )
             )
             quantum_complexity += queryComplexityQuantum
 
@@ -228,12 +240,14 @@ def run_scf_configured(config: SCFConfig, use_quantum: bool = False) -> SCFResul
                 mixingParameter * estimatedDensityBlockQuantum
                 + (1 - mixingParameter) * currentCoarseDensityQuantum[blockIndices]
             )
-            
-            residualQuantum = np.linalg.norm(newCoarseDensityQuantum - currentCoarseDensityQuantum)
+
+            residualQuantum = np.linalg.norm(
+                newCoarseDensityQuantum - currentCoarseDensityQuantum
+            )
             quantum_residuals.append(residualQuantum)
             currentCoarseDensityQuantum = newCoarseDensityQuantum
             quantum_densities.append(currentCoarseDensityQuantum.copy())
-        
+
         # Check convergence on classical
         if residualClassical < convergenceThreshold:
             break
