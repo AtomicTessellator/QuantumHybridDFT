@@ -127,7 +127,7 @@ class TestQsvt(unittest.TestCase):
             normalized_hamiltonian,
             self.normalization_factor,
             self.inverse_temperature,
-            self.find_mu(
+            self.find_mu(  # pyright: ignore[reportArgumentType]
                 self.eigenvalues, self.inverse_temperature, self.num_electrons
             ),
             degree,
@@ -137,7 +137,7 @@ class TestQsvt(unittest.TestCase):
         tqc = transpile(qc, backend)
         U = Operator(tqc).data
         N = self.num_grid_points
-        ancilla0_block = U[:N, :N]
+        ancilla0_block = U[:N, :N]  # pyright: ignore[reportArgumentType]
         self.assertGreaterEqual(np.trace(ancilla0_block).real, -1e-6)
         self.assertLessEqual(np.trace(ancilla0_block).real, N + 1e-6)
 
