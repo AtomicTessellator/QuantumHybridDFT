@@ -1,6 +1,5 @@
 import numpy as np
 from qiskit import QuantumCircuit, transpile
-from qiskit.quantum_info import Statevector
 from qiskit_aer import AerSimulator
 from scipy.stats import norm
 
@@ -123,43 +122,30 @@ def estimate_density_quantum(
     # The QSVT circuit has ancilla as first qubit, system qubits follow
     # Top-left block (ancilla=0) encodes P(H) ≈ Fermi-Dirac function
 
-    # Use statevector simulator to extract probabilities
+    # Use statevector simulator - single execution for all grid points
     backend = AerSimulator(method="statevector")
 
-    # Measure density at each grid point by preparing |x⟩ and measuring after QSVT
+    # Prepare uniform superposition: |+⟩^⊗n on system qubits
+    # Extract all density values from one circuit execution
+    prepCircuit = QuantumCircuit(numQubits + 1)
+    for qubitIdx in range(1, numQubits + 1):
+        prepCircuit.h(qubitIdx)
+
+    # Apply QSVT circuit once
+    prepCircuit.compose(quantumCircuit, inplace=True)
+    prepCircuit.save_statevector()
+
+    # Single execution
+    compiled = transpile(prepCircuit, backend)
+    job = backend.run(compiled, shots=1)
+    result = job.result()
+    statevec = result.get_statevector(prepCircuit)
+    probabilities = np.abs(statevec.data) ** 2
+
+    # Extract density from ancilla=0 subspace
     fineDensityQuantum = np.zeros(numGridPoints)
-
     for gridIdx in range(numGridPoints):
-        # Prepare |0⟩_ancilla ⊗ |gridIdx⟩_system
-        prepCircuit = QuantumCircuit(numQubits + 1)
-        # Ancilla is qubit 0, initialize to |0⟩ (already default)
-        # System qubits 1..numQubits encode gridIdx in binary
-        binaryRep = format(gridIdx, f"0{numQubits}b")
-        for qubitIdx, bit in enumerate(binaryRep):
-            if bit == "1":
-                prepCircuit.x(qubitIdx + 1)  # +1 because qubit 0 is ancilla
-
-        # Apply QSVT circuit
-        prepCircuit.compose(quantumCircuit, inplace=True)
-
-        # Save statevector instruction
-        prepCircuit.save_statevector()
-
-        # Execute on simulator
-        compiled = transpile(prepCircuit, backend)
-        job = backend.run(compiled)
-        result = job.result()
-
-        # Get statevector and compute probability
-        statevec = result.get_statevector(prepCircuit)
-        probabilities = np.abs(statevec.data) ** 2
-
-        # Extract ancilla=0 subspace probability (density at this point)
-        # Ancilla is most significant qubit (qubit 0)
-        # States with ancilla=0 have binary representation 0xxxxxxx (first qubit 0)
-        ancilla0_mask = np.arange(len(probabilities)) < (len(probabilities) // 2)
-        density_at_point = np.sum(probabilities[ancilla0_mask])
-        fineDensityQuantum[gridIdx] = density_at_point
+        fineDensityQuantum[gridIdx] = probabilities[gridIdx]
 
     # Project to coarse grid via interpolation matrix
     diffs = fineGrid[:, None, :] - coarsePoints[None, :, :]
