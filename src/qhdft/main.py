@@ -22,20 +22,27 @@ from qhdft.visualization.scf import visualize_scf_convergence
 
 #
 # Quantum Hybrid DFT
-# ┌─────────────────────────────────────────┐
-# │ Stage 1: Discretization initial density │
-# └───────────────────┬─────────────────────┘
+# ┌─────────────────────────────────────────────────────────────┐
+# │ Stage 1: Discretize + initialize coarse density             │
+# │   - build fine grid, choose coarse interpolation points,    │
+# │     fit initial coarse density and define shape function    │
+# └───────────────────┬─────────────────────────────────────────┘
 #                     │
-#    ┌────────────────▼──────────────────┐
-#    │ Stage 2: Run SCF iterations       │
-#    └───────────────────────────────────┘
-
-
-#
-# 1. Setup discretization and initial density (stage1).
-# 2. Run SCF iterations (stage5, which calls stage2,4 internally; stage3 is placeholder).
-# 3. Validate with energy, scaling, errors (stage6).
-# Note: stage3 QSVT is not fully integrated in simulation; used for poly approx in tests.
+# ┌───────────────────▼─────────────────────────────────────────┐
+# │ Stage 2: SCF loop (random-block updates with mixing)        │
+# │   per-iteration:                                            │
+# │     • build H[n] (kinetic + V_ext + V_H + V_xc)             │
+# │     • find μ via bisection to match electron count          │
+# │     • estimate density on selected block:                   │
+# │         - classical path (exact diag simulation), or        │
+# │         - quantum path using QSVT block-encoding            │
+# └───────────────────┬─────────────────────────────────────────┘
+#                     │
+# ┌───────────────────▼─────────────────────────────────────────┐
+# │ Stage 3: Validation & analysis                              │
+# │   - energy from converged density, scaling study,           │
+# │     error breakdown, and visualizations                     │
+# └─────────────────────────────────────────────────────────────┘
 
 
 def main(
